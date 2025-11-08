@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - PHOTO_STORAGE_TYPE=stub
+      - ML_MODEL_TYPE=stub
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    depends_on:
+      - db
+  
+  bot:
+    build: .
+    command: python -m satwave.adapters.bot.telegram_bot
+    environment:
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+      - PHOTO_STORAGE_TYPE=stub
+      - ML_MODEL_TYPE=stub
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgis/postgis:15-3.3
+    environment:
+      - POSTGRES_USER=satwave
+      - POSTGRES_PASSWORD=satwave
+      - POSTGRES_DB=satwave
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+
