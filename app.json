@@ -84,6 +84,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "EXPO_PUBLIC_SUPABASE_URL": "https://dzjhmateuahpberxupne.supabase.co",
+      "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6amhtYXRldWFocGJlcnh1cG5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1ODY4MTgsImV4cCI6MjA3ODE2MjgxOH0.ff1lhi5IWMK8p50VhlKPOACuskJMVodI__3jh2CvQWw"
+      ,
+      "EXPO_PUBLIC_API_URL": "http://127.0.0.1:8000"
     }
   }
 }

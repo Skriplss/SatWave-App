@@ -18,12 +18,14 @@ import {
   Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { generateObject } from "@rork/toolkit-sdk";
+// Local fallback for AI analysis to avoid external SDK
+import { generateObject } from "@/lib/ai";
 import { z } from "zod";
 import Colors from "@/constants/colors";
 import { TrashType, TRASH_TYPES } from "@/constants/trash-types";
 import { useApp } from "@/contexts/app-context";
 import { ScanResult } from "@/types/app";
+import { postPhoto } from "@/lib/api";
 
 const { width } = Dimensions.get("window");
 
@@ -181,6 +183,22 @@ export default function HomeScreen() {
 
     setChatState("processing");
     addBotMessage("🎉 Perfect! Processing your submission...");
+
+    // Try to send the photo + location to backend API
+    try {
+      const resp = await postPhoto({
+        uri: pendingAnalysis.imageUri,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        skipDuplicateCheck: false,
+      });
+      console.log("Backend analysis:", resp);
+    } catch (e) {
+      console.error("Failed to reach backend API:", e);
+      addBotMessage(
+        "⚠️ Could not reach backend. Ensure it runs on API_URL and CORS is enabled."
+      );
+    }
 
     const trashInfo = TRASH_TYPES[pendingAnalysis.analysis.trashType];
     const scan: ScanResult = {

@@ -99,6 +99,31 @@ class Settings(BaseSettings):
     # Логирование
     log_level: str = Field(default="INFO", description="Уровень логирования")
 
+    # Supabase настройки
+    supabase_url: str = Field(
+        default="",
+        description="Supabase project URL (https://<ref>.supabase.co)",
+    )
+    supabase_anon_key: str = Field(
+        default="",
+        description="Supabase anon public key (для клиента)",
+    )
+    supabase_service_role_key: str = Field(
+        default="",
+        description="Supabase service role key (использовать только на бэкенде)",
+    )
+    supabase_jwks_url: str = Field(
+        default="",
+        description="Supabase JWKS URL (обычно https://<ref>.supabase.co/auth/v1/jwks)",
+    )
+
+    # SMTP (отправка почты)
+    smtp_host: str = Field(default="", description="SMTP host")
+    smtp_port: int = Field(default=587, description="SMTP port (обычно 587)")
+    smtp_user: str = Field(default="", description="SMTP username")
+    smtp_password: str = Field(default="", description="SMTP password / API key")
+    smtp_from: str = Field(default="", description="From email, например no-reply@example.com")
+
 
 def get_settings() -> Settings:
     """Получить настройки приложения."""

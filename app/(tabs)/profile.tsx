@@ -1,4 +1,4 @@
-import { User, Settings, Award, TrendingUp, Leaf, Flame } from "lucide-react-native";
+import { User, Settings, Award, TrendingUp, Leaf, Flame, LogOut } from "lucide-react-native";
 import { useState } from "react";
 import {
   View,
@@ -11,12 +11,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "@/contexts/app-context";
+import { useAuth } from "@/contexts/auth-context";
 import Colors from "@/constants/colors";
 import { TRASH_TYPES } from "@/constants/trash-types";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, updateUsername } = useApp();
+  const { signOut } = useAuth();
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [newUsername, setNewUsername] = useState(user?.username || "");
 
@@ -52,6 +54,17 @@ export default function ProfileScreen() {
           >
             <Settings size={18} color={Colors.primary} />
             <Text style={styles.editButtonText}>Edit Profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.editButton, { marginTop: 8 }]}
+            onPress={async () => {
+              try {
+                await signOut();
+              } catch {}
+            }}
+          >
+            <LogOut size={18} color={Colors.error} />
+            <Text style={[styles.editButtonText, { color: Colors.error }]}>Logout</Text>
           </TouchableOpacity>
         </View>
 

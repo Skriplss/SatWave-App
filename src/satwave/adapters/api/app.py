@@ -8,6 +8,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from satwave.adapters.api.webhook import router as webhook_router
+from satwave.adapters.api.auth import router as auth_router
+from satwave.adapters.api.coupons import router as coupons_router
 from satwave.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -56,6 +58,8 @@ def create_app() -> FastAPI:
     
     # Подключаем роутеры
     app.include_router(webhook_router)
+    app.include_router(auth_router)
+    app.include_router(coupons_router)
     
     @app.get("/", tags=["health"])
     async def root() -> dict[str, str]:

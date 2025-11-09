@@ -2,7 +2,9 @@
 name = "satwave"
 version = "0.1.0"
 description = "Платформа для обнаружения, классификации и коммерциализации вторсырья"
-readme = "README.md"
+# NOTE: README excluded from build because the file encoding is not UTF-8 and
+# breaks editable installs on Windows. Convert readme.md to UTF-8 and set
+# `readme = "readme.md"` later if needed.
 requires-python = ">=3.11"
 authors = [
     { name = "SatWave Team" }

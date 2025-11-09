@@ -1,9 +1,18 @@
-import { Tabs } from "expo-router";
-import { Camera, Trophy, User, MessageSquare } from "lucide-react-native";
-import React from "react";
+import { Tabs, router } from "expo-router";
+import { Camera, Trophy, User, MessageSquare, Tag } from "lucide-react-native";
+import React, { useEffect } from "react";
 import Colors from "@/constants/colors";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function TabLayout() {
+  const { session, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !session) {
+      router.replace("/(auth)/sign-in");
+    }
+  }, [loading, session]);
+
   return (
     <Tabs
       screenOptions={{
@@ -37,6 +46,13 @@ export default function TabLayout() {
         options={{
           title: "Forum",
           tabBarIcon: ({ color }) => <MessageSquare size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="coupons"
+        options={{
+          title: "Coupons",
+          tabBarIcon: ({ color }) => <Tag size={24} color={color} />,
         }}
       />
       <Tabs.Screen
