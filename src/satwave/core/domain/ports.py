@@ -1,4 +1,4 @@
-"""Порты (интерфейсы) для адаптеров."""
+"""Ports (interfaces) for adapters."""
 
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -8,39 +8,39 @@ from satwave.core.domain.models import Location, PhotoAnalysis, WasteDetection
 
 
 class IPhotoStorage(ABC):
-    """Интерфейс для хранения фотографий."""
+    """Interface for photo storage."""
 
     @abstractmethod
     async def save_photo(self, photo_data: bytes, photo_id: UUID) -> str:
         """
-        Сохранить фото и вернуть URL.
+        Save photo and return URL.
         
         Args:
-            photo_data: Бинарные данные фото
-            photo_id: ID фото
+            photo_data: Binary photo data
+            photo_id: Photo ID
             
         Returns:
-            URL сохраненного фото
+            URL of saved photo
         """
         pass
 
     @abstractmethod
     async def get_photo(self, photo_url: str) -> bytes:
-        """Получить фото по URL."""
+        """Get photo by URL."""
         pass
 
 
 class IAnalysisRepository(ABC):
-    """Интерфейс для работы с анализами в БД."""
+    """Interface for working with analyses in database."""
 
     @abstractmethod
     async def save(self, analysis: PhotoAnalysis) -> None:
-        """Сохранить анализ в БД."""
+        """Save analysis to database."""
         pass
 
     @abstractmethod
     async def get_by_id(self, analysis_id: UUID) -> Optional[PhotoAnalysis]:
-        """Получить анализ по ID."""
+        """Get analysis by ID."""
         pass
 
     @abstractmethod
@@ -48,14 +48,14 @@ class IAnalysisRepository(ABC):
         self, location: Location, radius_meters: float = 50.0
     ) -> list[PhotoAnalysis]:
         """
-        Найти анализы в радиусе от заданной точки.
+        Find analyses within radius from given point.
         
         Args:
-            location: Центральная точка поиска
-            radius_meters: Радиус поиска в метрах
+            location: Center point for search
+            radius_meters: Search radius in meters
             
         Returns:
-            Список анализов в радиусе
+            List of analyses within radius
         """
         pass
 
@@ -64,36 +64,36 @@ class IAnalysisRepository(ABC):
         self, location: Location, threshold_meters: float = 50.0
     ) -> bool:
         """
-        Проверить, было ли данное местоположение уже проанализировано.
+        Check if this location has already been analyzed.
         
         Args:
-            location: Координаты для проверки
-            threshold_meters: Порог расстояния в метрах
+            location: Coordinates to check
+            threshold_meters: Distance threshold in meters
             
         Returns:
-            True если местоположение уже анализировалось
+            True if location was already analyzed
         """
         pass
 
 
 class IWasteClassifier(ABC):
-    """Интерфейс для ML-классификатора мусора."""
+    """Interface for ML waste classifier."""
 
     @abstractmethod
     async def classify(self, photo_data: bytes) -> list[WasteDetection]:
         """
-        Классифицировать мусор на фото.
+        Classify waste in photo.
         
         Args:
-            photo_data: Бинарные данные фото
+            photo_data: Binary photo data
             
         Returns:
-            Список детекций с типами мусора
+            List of detections with waste types
         """
         pass
 
     @abstractmethod
     async def is_ready(self) -> bool:
-        """Проверить, готова ли модель к работе."""
+        """Check if model is ready for work."""
         pass
 

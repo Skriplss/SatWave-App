@@ -1,22 +1,22 @@
-"""Доменные исключения."""
+"""Domain exceptions."""
 
 
 class SatWaveError(Exception):
-    """Базовое исключение SatWave."""
+    """Base SatWave exception."""
 
 
 class InvalidLocationError(SatWaveError):
-    """Невалидные координаты."""
+    """Invalid coordinates."""
 
 
 class DuplicateLocationError(SatWaveError):
-    """Данное местоположение уже было проанализировано."""
+    """This location has already been analyzed."""
 
 
 class PhotoProcessingError(SatWaveError):
-    """Ошибка при обработке фото."""
+    """Photo processing error."""
 
 
 class MLModelError(SatWaveError):
-    """Ошибка ML-модели."""
+    """ML model error."""
 

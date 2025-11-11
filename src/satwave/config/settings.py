@@ -1,11 +1,11 @@
-"""Конфигурация приложения через pydantic settings."""
+"""Application configuration via pydantic settings."""
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Настройки приложения."""
+    """Application settings."""
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -14,12 +14,12 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Основные настройки
+    # Main settings
     app_name: str = "SatWave"
     app_version: str = "0.1.0"
-    debug: bool = Field(default=False, description="Debug режим")
+    debug: bool = Field(default=False, description="Debug mode")
     
-    # API настройки
+    # API settings
     api_host: str = Field(default="0.0.0.0", description="API host")
     api_port: int = Field(default=8000, description="API port")
     
@@ -30,47 +30,48 @@ class Settings(BaseSettings):
     )
     telegram_admin_ids: str = Field(
         default="",
-        description="Telegram user IDs администраторов (через запятую)",
+        description="Telegram user IDs of administrators (comma-separated)",
     )
     
-    # База данных
+    # Database
     database_url: str = Field(
         default="postgresql+asyncpg://satwave:satwave@localhost:5432/satwave",
         description="PostgreSQL connection URL",
     )
     
-    # Хранилище фото
+    # Photo storage
     photo_storage_type: str = Field(
-        default="stub", description="Тип хранилища: stub, local, s3"
+        default="stub", description="Storage type: stub, local, s3"
     )
     photo_storage_base_url: str = Field(
         default="http://localhost:8000/photos",
-        description="Базовый URL для фото",
+        description="Base URL for photos",
     )
     photo_storage_path: str = Field(
         default="./data/photos",
-        description="Путь для локального хранилища",
+        description="Path for local storage",
     )
     
-    # ML модель
+    # ML model
     ml_model_type: str = Field(
-        default="stub", description="Тип модели: stub, yolo, roboflow_inference, detectron2"
+        default="stub",
+        description="Model type: stub, yolo (Waste-Classification-using-YOLOv8), roboflow_inference, detectron2",
     )
     ml_model_path: str = Field(
-        default="./models/yolov12n.pt",
-        description="Путь к весам модели (YOLOv12n или путь к скачанной модели)",
+        default="./models/waste-classification-yolov8.pt",
+        description="Path to YOLOv8 model weights (e.g., Waste-Classification-using-YOLOv8 model from teamsmcorg)",
     )
     ml_model_confidence_threshold: float = Field(
-        default=0.25, description="Порог confidence для детекций"
+        default=0.25, description="Confidence threshold for detections"
     )
-    # Roboflow настройки (для скачивания модели)
+    # Roboflow settings (for downloading model)
     roboflow_api_key: str = Field(
         default="",
-        description="Roboflow API ключ (опционально, для скачивания модели)",
+        description="Roboflow API key (optional, for downloading model)",
     )
     roboflow_workspace: str = Field(
         default="asts31",
-        description="Roboflow workspace (для модели Trash Sorter)",
+        description="Roboflow workspace (for Trash Sorter model)",
     )
     roboflow_project: str = Field(
         default="trash-sorter-all-classes",
@@ -80,24 +81,24 @@ class Settings(BaseSettings):
         default=1,
         description="Roboflow model version",
     )
-    # Roboflow Inference API настройки
+    # Roboflow Inference API settings
     roboflow_inference_model_id: str = Field(
         default="trash-sorter-all-classes/4",
-        description="Roboflow Inference API model ID (формат: project/version)",
+        description="Roboflow Inference API model ID (format: project/version)",
     )
     roboflow_inference_api_url: str = Field(
         default="https://serverless.roboflow.com",
         description="Roboflow Inference API URL",
     )
     
-    # Дедупликация
+    # Deduplication
     duplicate_check_threshold_meters: float = Field(
         default=50.0,
-        description="Порог расстояния для проверки дубликатов (метры)",
+        description="Distance threshold for duplicate check (meters)",
     )
     
-    # Логирование
-    log_level: str = Field(default="INFO", description="Уровень логирования")
+    # Logging
+    log_level: str = Field(default="INFO", description="Logging level")
 
     # Supabase настройки
     supabase_url: str = Field(
@@ -126,6 +127,6 @@ class Settings(BaseSettings):
 
 
 def get_settings() -> Settings:
-    """Получить настройки приложения."""
+    """Get application settings."""
     return Settings()
 

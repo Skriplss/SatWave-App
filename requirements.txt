@@ -1,5 +1,5 @@
 # Основные зависимости
-fastapi>=0.104.0
+fastapi>=0.109.1
 uvicorn[standard]>=0.24.0
 pydantic>=2.5.0
 pydantic-settings>=2.1.0
@@ -18,11 +18,11 @@ pytest-asyncio>=0.21.0
 pytest-cov>=4.1.0
 
 # ML dependencies
-torch>=2.1.0
+torch>=2.8.0
 torchvision>=0.16.0
 ultralytics>=8.0.0
 opencv-python>=4.8.0
-pillow>=10.0.0
+pillow>=11.3.0
 roboflow>=1.1.0
 # inference-sdk 1.x is not published on PyPI yet; pin to latest 0.x
 inference-sdk>=0.57.2,<1.0.0

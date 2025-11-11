@@ -1,8 +1,9 @@
 """Dependency injection для FastAPI."""
 
-from satwave.adapters.ml.roboflow_inference_classifier import RoboflowInferenceClassifier
+import logging
+
 from satwave.adapters.ml.stub_classifier import StubWasteClassifier
-from satwave.adapters.ml.yolo_classifier import YOLOv8Classifier
+from satwave.adapters.ml.yolo_classifier import YOLOv8WasteClassifier
 from satwave.adapters.storage.stub_photo_storage import StubPhotoStorage
 from satwave.adapters.storage.stub_repository import StubAnalysisRepository
 from satwave.config.settings import Settings, get_settings
@@ -12,6 +13,8 @@ from satwave.core.domain.ports import (
     IWasteClassifier,
 )
 from satwave.core.services.photo_analysis_service import PhotoAnalysisService
+
+logger = logging.getLogger(__name__)
 
 # Кэш для компонентов (без Settings в аргументах)
 _photo_storage_cache: IPhotoStorage | None = None
@@ -66,9 +69,11 @@ def get_analysis_repository(settings: Settings | None = None) -> IAnalysisReposi
 
 def get_waste_classifier(settings: Settings | None = None) -> IWasteClassifier:
     """
-    Получить ML-классификатор.
+    Получить ML-классификатор мусора.
     
-    TODO: Добавить реализации с YOLOv8/Detectron2.
+    Поддерживаемые типы:
+    - stub: Заглушка для тестов
+    - yolo: YOLOv8 классификатор (Waste-Classification-using-YOLOv8)
     """
     global _waste_classifier_cache
     
@@ -78,31 +83,22 @@ def get_waste_classifier(settings: Settings | None = None) -> IWasteClassifier:
     if settings is None:
         settings = get_settings()
     
-    if settings.ml_model_type == "stub":
-        _waste_classifier_cache = StubWasteClassifier()
-    elif settings.ml_model_type == "yolo":
-        _waste_classifier_cache = YOLOv8Classifier(
+    # Выбираем классификатор в зависимости от типа модели
+    if settings.ml_model_type == "yolo":
+        logger.info(f"Using YOLOv8 classifier with model: {settings.ml_model_path}")
+        _waste_classifier_cache = YOLOv8WasteClassifier(
             model_path=settings.ml_model_path,
             confidence_threshold=settings.ml_model_confidence_threshold,
-            imgsz=1280,  # Большое разрешение для лучшей точности
-            roboflow_api_key=settings.roboflow_api_key if settings.roboflow_api_key else None,
-            roboflow_workspace=settings.roboflow_workspace,
-            roboflow_project=settings.roboflow_project,
-            roboflow_version=settings.roboflow_version,
+            device=None,  # Auto-detect device
         )
-    elif settings.ml_model_type == "roboflow_inference":
-        if not settings.roboflow_api_key:
-            raise ValueError("Roboflow API key is required for roboflow_inference model type")
-        _waste_classifier_cache = RoboflowInferenceClassifier(
-            api_key=settings.roboflow_api_key,
-            model_id=settings.roboflow_inference_model_id,
-            api_url=settings.roboflow_inference_api_url,
-            confidence_threshold=settings.ml_model_confidence_threshold,
-        )
-    # elif settings.ml_model_type == "detectron2":
-    #     _waste_classifier_cache = Detectron2Classifier(...)
+    elif settings.ml_model_type == "stub":
+        logger.info("Using stub classifier")
+        _waste_classifier_cache = StubWasteClassifier()
     else:
-        raise ValueError(f"Unknown ML model type: {settings.ml_model_type}")
+        logger.warning(
+            f"Unknown model type: {settings.ml_model_type}, falling back to stub"
+        )
+        _waste_classifier_cache = StubWasteClassifier()
     
     return _waste_classifier_cache
 

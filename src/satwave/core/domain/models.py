@@ -1,4 +1,4 @@
-"""Доменные модели SatWave."""
+"""SatWave domain models."""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -8,8 +8,9 @@ from uuid import UUID, uuid4
 
 
 class WasteType(str, Enum):
-    """Типы мусора."""
+    """Waste types."""
 
+    # Old types (for backward compatibility)
     PLASTIC = "plastic"
     METAL = "metal"
     PAPER = "paper"
@@ -19,10 +20,17 @@ class WasteType(str, Enum):
     ELECTRONICS = "electronics"
     MIXED = "mixed"
     UNKNOWN = "unknown"
+    
+    # New waste categories
+    CONSTRUCTION_WASTE = "construction_waste"
+    HAZARDOUS_WASTE = "hazardous_waste"
+    HOUSEHOLD_WASTE = "household_waste"
+    MIXED_WASTE = "mixed_waste"
+    WASTE_SEPARATION_FACILITIES = "waste_separation_facilities"
 
 
 class AnalysisStatus(str, Enum):
-    """Статус анализа фото."""
+    """Photo analysis status."""
 
     PENDING = "pending"
     PROCESSING = "processing"
@@ -32,40 +40,40 @@ class AnalysisStatus(str, Enum):
 
 @dataclass
 class Location:
-    """Географическое местоположение."""
+    """Geographic location."""
 
     latitude: float
     longitude: float
 
     def __post_init__(self) -> None:
-        """Валидация координат."""
+        """Validate coordinates."""
         if not -90 <= self.latitude <= 90:
             raise ValueError(f"Invalid latitude: {self.latitude}")
         if not -180 <= self.longitude <= 180:
             raise ValueError(f"Invalid longitude: {self.longitude}")
 
     def to_wkt(self) -> str:
-        """Преобразование в WKT формат для PostGIS."""
+        """Convert to WKT format for PostGIS."""
         return f"POINT({self.longitude} {self.latitude})"
 
 
 @dataclass
 class WasteDetection:
-    """Результат детекции мусора на фото."""
+    """Waste detection result on photo."""
 
     waste_type: WasteType
     confidence: float
     bounding_box: Optional[tuple[float, float, float, float]] = None
 
     def __post_init__(self) -> None:
-        """Валидация confidence."""
+        """Validate confidence."""
         if not 0 <= self.confidence <= 1:
             raise ValueError(f"Confidence must be between 0 and 1, got {self.confidence}")
 
 
 @dataclass
 class PhotoAnalysis:
-    """Результат анализа фотографии."""
+    """Photo analysis result."""
 
     id: UUID
     photo_url: str
@@ -78,7 +86,7 @@ class PhotoAnalysis:
 
     @staticmethod
     def create(photo_url: str, location: Location) -> "PhotoAnalysis":
-        """Создание нового анализа."""
+        """Create new analysis."""
         return PhotoAnalysis(
             id=uuid4(),
             photo_url=photo_url,
@@ -90,26 +98,26 @@ class PhotoAnalysis:
 
     def is_duplicate_location(self, other: "PhotoAnalysis", threshold_meters: float = 50.0) -> bool:
         """
-        Проверка, является ли это дубликатом по местоположению.
+        Check if this is a duplicate by location.
         
         Args:
-            other: Другой анализ для сравнения
-            threshold_meters: Порог расстояния в метрах
+            other: Other analysis for comparison
+            threshold_meters: Distance threshold in meters
             
         Returns:
-            True если расстояние меньше порога
+            True if distance is less than threshold
         """
-        # Упрощенная формула Haversine для малых расстояний
+        # Simplified Haversine formula for small distances
         lat_diff = abs(self.location.latitude - other.location.latitude)
         lon_diff = abs(self.location.longitude - other.location.longitude)
         
-        # Приблизительное расстояние в метрах (1 градус ≈ 111 км)
+        # Approximate distance in meters (1 degree ≈ 111 km)
         distance = ((lat_diff ** 2 + lon_diff ** 2) ** 0.5) * 111000
         
         return distance < threshold_meters
 
     def get_dominant_waste_type(self) -> WasteType:
-        """Получить преобладающий тип мусора на основе confidence."""
+        """Get dominant waste type based on confidence."""
         if not self.detections:
             return WasteType.UNKNOWN
         

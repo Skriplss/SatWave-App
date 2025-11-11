@@ -1,9 +1,10 @@
-"""Telegram bot handlers для обработки сообщений."""
+"""Telegram bot handlers for message processing."""
 
 import logging
 import re
 from io import BytesIO
 
+from PIL import Image
 from aiogram import Router, types
 from aiogram.filters import Command
 from aiogram.types import Message
@@ -20,45 +21,123 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 
+def validate_image(photo_data: bytes) -> tuple[bool, str]:
+    """
+    Validate image before processing.
+    
+    Checks:
+    - File type (must be an image)
+    - Minimum image size
+    - Aspect ratio
+    - File size
+    
+    Args:
+        photo_data: Binary image data
+        
+    Returns:
+        Tuple[bool, str]: (is image valid, error message)
+    """
+    try:
+        # Check file size (minimum 1KB, maximum 20MB)
+        if len(photo_data) < 1024:
+            return False, "File is too small. Please send a full photo."
+        
+        if len(photo_data) > 20 * 1024 * 1024:
+            return False, "File is too large. Maximum size: 20MB."
+        
+        # Try to open image
+        try:
+            image = Image.open(BytesIO(photo_data))
+        except Exception as e:
+            logger.warning(f"Failed to open image: {e}")
+            return False, "This is not an image. Please send a photo in JPEG or PNG format."
+        
+        # Check format (must be JPEG, PNG, WebP)
+        if image.format not in ("JPEG", "PNG", "WEBP"):
+            return False, f"Unsupported format: {image.format}. Please use JPEG or PNG."
+        
+        # Check image size (minimum 100x100 pixels)
+        width, height = image.size
+        min_size = 100
+        if width < min_size or height < min_size:
+            return False, (
+                f"Image is too small ({width}x{height}). "
+                f"Minimum size: {min_size}x{min_size} pixels."
+            )
+        
+        # Check aspect ratio (should not be too extreme)
+        # For example, not 1:10 or 10:1 (might be file icon or preview)
+        aspect_ratio = width / height if height > 0 else 0
+        max_aspect_ratio = 10.0
+        min_aspect_ratio = 0.1
+        
+        if aspect_ratio > max_aspect_ratio or aspect_ratio < min_aspect_ratio:
+            return False, (
+                f"Strange aspect ratio ({width}x{height}). "
+                "This might be a file preview, not a photo. Please send a full photo."
+            )
+        
+        # Check that this is not too small image (might be icon)
+        # Minimum area: 10,000 pixels (100x100)
+        min_area = 10000
+        area = width * height
+        if area < min_area:
+            return False, (
+                f"Image is too small (area: {area} pixels). "
+                f"Minimum area: {min_area} pixels."
+            )
+        
+        logger.info(
+            f"Image validated: {width}x{height}, format={image.format}, "
+            f"size={len(photo_data)} bytes, aspect_ratio={aspect_ratio:.2f}"
+        )
+        
+        return True, ""
+        
+    except Exception as e:
+        logger.error(f"Error validating image: {e}")
+        return False, f"Error checking image: {str(e)}"
+
+
 @router.message(Command("start"))
 async def cmd_start(message: Message) -> None:
-    """Обработчик команды /start."""
+    """Handler for /start command."""
     welcome_text = (
-        "🛰️ Привет! Я бот SatWave.\n\n"
-        "📸 Отправь мне фото мусора и геолокацию, "
-        "и я проанализирую тип отходов!\n\n"
-        "Как использовать:\n"
-        "1️⃣ Отправь фото\n"
-        "2️⃣ Отправь геолокацию (📍 Location в меню)\n\n"
-        "Или используй команду /help для помощи."
+        "🛰️ Hello! I'm SatWave bot.\n\n"
+        "📸 Send me a photo of waste and geolocation, "
+        "and I'll analyze the waste type!\n\n"
+        "How to use:\n"
+        "1️⃣ Send a photo\n"
+        "2️⃣ Send geolocation (📍 Location in menu)\n\n"
+        "Or use /help for help."
     )
     await message.answer(welcome_text)
 
 
 @router.message(Command("help"))
 async def cmd_help(message: Message) -> None:
-    """Обработчик команды /help."""
+    """Handler for /help command."""
     help_text = (
-        "📖 Помощь:\n\n"
-        "🔹 /start - Приветствие\n"
-        "🔹 /help - Эта справка\n"
-        "🔹 /stats - Статистика анализов (TODO)\n"
-        "🔹 /reload - Перезагрузить модель\n"
-        "🔹 /stop - Остановить бота (только для админов)\n\n"
-        "📸 Отправка фото:\n"
-        "• Отправь фото мусора\n"
-        "• Добавь геолокацию в подписи или отдельным сообщением\n\n"
-        "📍 Отправка геолокации:\n"
-        "• Нажми на скрепку → Location\n"
-        "• Выбери текущее местоположение\n\n"
-        "⚠️ Важно: я запоминаю локации и не обрабатываю дубликаты!"
+        "📖 Help:\n\n"
+        "🔹 /start - Welcome message\n"
+        "🔹 /help - This help\n"
+        "🔹 /stats - Analysis statistics (TODO)\n"
+        "🔹 /reload - Reload model\n"
+        "🔹 /stop - Stop bot (admin only)\n\n"
+        "📸 Sending photos:\n"
+        "• Send a photo of waste\n"
+        "• Add geolocation in caption or as separate message\n\n"
+        "📍 Sending geolocation:\n"
+        "• Click on paperclip → Location\n"
+        "• Select current location\n\n"
+        "⚠️ Important: I remember locations and don't process duplicates!"
     )
     await message.answer(help_text)
 
 
 @router.message(Command("reload"))
 async def cmd_reload(message: Message) -> None:
-    """Перезагрузить ML-модель и очистить кэш."""
+    """Reload ML model and clear cache."""
     if not message.from_user:
         return
 
@@ -66,10 +145,10 @@ async def cmd_reload(message: Message) -> None:
     logger.info(f"User {user_id} requested model reload")
 
     try:
-        # Очищаем кэш компонентов
+        # Clear component cache
         import satwave.adapters.api.dependencies as deps
         
-        # Если есть модель в памяти, выгружаем её
+        # If model is in memory, unload it
         if deps._waste_classifier_cache is not None:
             classifier = deps._waste_classifier_cache
             if hasattr(classifier, "_model") and classifier._model is not None:
@@ -77,26 +156,26 @@ async def cmd_reload(message: Message) -> None:
                 classifier._is_ready = False
                 logger.info("Model unloaded from memory")
         
-        # Очищаем кэш классификатора
+        # Clear classifier cache
         deps._waste_classifier_cache = None
 
-        await message.answer("✅ Кэш очищен. Модель будет перезагружена при следующем использовании")
+        await message.answer("✅ Cache cleared. Model will be reloaded on next use")
         logger.info(f"Model reload requested by user {user_id}")
 
     except Exception as e:
         logger.exception(f"Error reloading model: {e}")
-        await message.answer(f"❌ Ошибка при перезагрузке модели: {e}")
+        await message.answer(f"❌ Error reloading model: {e}")
 
 
 @router.message(Command("stop"))
 async def cmd_stop(message: Message) -> None:
-    """Остановить бота (только для админов)."""
+    """Stop bot (admin only)."""
     if not message.from_user:
         return
 
     user_id = message.from_user.id
 
-    # Получаем список админов из настроек
+    # Get admin list from settings
     from satwave.config.settings import get_settings
 
     settings = get_settings()
@@ -111,59 +190,59 @@ async def cmd_stop(message: Message) -> None:
         admin_ids = []
 
     if admin_ids and user_id not in admin_ids:
-        await message.answer("❌ У тебя нет прав для этой команды")
+        await message.answer("❌ You don't have permission for this command")
         logger.warning(f"User {user_id} tried to stop bot without admin rights")
         return
 
     logger.info(f"User {user_id} requested bot stop")
-    await message.answer("🛑 Останавливаю бота...")
+    await message.answer("🛑 Stopping bot...")
 
-    # Останавливаем polling через dispatcher
+    # Stop polling via dispatcher
     from aiogram import Bot
     bot = message.bot
     await bot.session.close()
     
-    # Останавливаем процесс
+    # Stop process
     import sys
     import os
     os._exit(0)
 
 
 class UserSession:
-    """Сессия пользователя для хранения промежуточных данных."""
+    """User session for storing intermediate data."""
 
     def __init__(self) -> None:
-        """Инициализация сессии."""
+        """Initialize session."""
         self.photo_data: bytes | None = None
         self.latitude: float | None = None
         self.longitude: float | None = None
 
     def has_photo(self) -> bool:
-        """Проверить, есть ли фото."""
+        """Check if photo exists."""
         return self.photo_data is not None
 
     def has_location(self) -> bool:
-        """Проверить, есть ли локация."""
+        """Check if location exists."""
         return self.latitude is not None and self.longitude is not None
 
     def is_ready(self) -> bool:
-        """Проверить, готова ли сессия к обработке."""
+        """Check if session is ready for processing."""
         return self.has_photo() and self.has_location()
 
     def clear(self) -> None:
-        """Очистить сессию."""
+        """Clear session."""
         self.photo_data = None
         self.latitude = None
         self.longitude = None
 
 
-# In-memory хранилище сессий пользователей
-# TODO: Заменить на Redis для продакшна
+# In-memory storage for user sessions
+# TODO: Replace with Redis for production
 user_sessions: dict[int, UserSession] = {}
 
 
 def get_user_session(user_id: int) -> UserSession:
-    """Получить сессию пользователя."""
+    """Get user session."""
     if user_id not in user_sessions:
         user_sessions[user_id] = UserSession()
     return user_sessions[user_id]
@@ -172,9 +251,9 @@ def get_user_session(user_id: int) -> UserSession:
 @router.message(lambda message: message.photo is not None)
 async def handle_photo(message: Message) -> None:
     """
-    Обработчик фото.
+    Photo handler.
     
-    Сохраняет фото в сессии пользователя и ждет геолокацию.
+    Saves photo in user session and waits for geolocation.
     """
     if not message.from_user:
         logger.warning("Message without from_user in handle_photo")
@@ -184,44 +263,57 @@ async def handle_photo(message: Message) -> None:
     session = get_user_session(user_id)
 
     try:
-        # Получаем фото самого большого размера
+        # Get largest photo size
         photo = message.photo[-1]
         
         logger.info(f"User {user_id} sent photo, file_id: {photo.file_id}, size: {photo.file_size}")
         
-        # Скачиваем файл
+        # Download file
         bot = message.bot
         file = await bot.get_file(photo.file_id)
         photo_bytes = BytesIO()
         await bot.download_file(file.file_path, photo_bytes)
         
-        session.photo_data = photo_bytes.getvalue()
+        photo_data = photo_bytes.getvalue()
         
-        logger.info(f"User {user_id} uploaded photo ({len(session.photo_data)} bytes)")
+        logger.info(f"User {user_id} uploaded photo ({len(photo_data)} bytes)")
+        
+        # Validate image
+        is_valid, error_message = validate_image(photo_data)
+        if not is_valid:
+            logger.warning(f"User {user_id} sent invalid image: {error_message}")
+            await message.answer(
+                f"❌ {error_message}\n\n"
+                "📸 Please send a full photo of waste (not a file preview or icon)."
+            )
+            return
+        
+        # Save valid image
+        session.photo_data = photo_data
 
-        # Проверяем, есть ли уже локация
+        # Check if location already exists
         if session.has_location():
             logger.info(f"User {user_id} has both photo and location, starting analysis")
             await process_analysis(message, session)
         else:
             logger.info(f"User {user_id} sent photo, waiting for location")
             await message.answer(
-                "✅ Фото получено!\n\n"
-                "📍 Теперь отправь геолокацию (нажми на скрепку → Location)"
+                "✅ Photo received!\n\n"
+                "📍 Now send geolocation (click on paperclip → Location)"
             )
     except Exception as e:
         logger.exception(f"Error handling photo from user {user_id}: {e}")
         await message.answer(
-            "❌ Ошибка при обработке фото. Попробуй отправить еще раз."
+            "❌ Error processing photo. Please try again."
         )
 
 
 @router.message(lambda message: message.location is not None)
 async def handle_location(message: Message) -> None:
     """
-    Обработчик геолокации.
+    Geolocation handler.
     
-    Сохраняет координаты в сессии пользователя и запускает анализ, если есть фото.
+    Saves coordinates in user session and starts analysis if photo exists.
     """
     if not message.from_user:
         logger.warning("Message without from_user in handle_location")
@@ -240,48 +332,48 @@ async def handle_location(message: Message) -> None:
 
         logger.info(f"User {user_id} sent location: {session.latitude}, {session.longitude}")
 
-        # Проверяем, есть ли уже фото
+        # Check if photo already exists
         if session.has_photo():
             logger.info(f"User {user_id} has both photo and location, starting analysis")
             await process_analysis(message, session)
         else:
             logger.info(f"User {user_id} sent location, waiting for photo")
             await message.answer(
-                f"✅ Локация получена!\n"
+                f"✅ Location received!\n"
                 f"📍 {session.latitude}, {session.longitude}\n\n"
-                f"📸 Теперь отправь фото мусора"
+                f"📸 Now send a photo of waste"
             )
     except Exception as e:
         logger.exception(f"Error handling location from user {user_id}: {e}")
         await message.answer(
-            "❌ Ошибка при обработке геолокации. Попробуй отправить еще раз."
+            "❌ Error processing geolocation. Please try again."
         )
 
 
 async def process_analysis(message: Message, session: UserSession) -> None:
     """
-    Обработать анализ фото.
+    Process photo analysis.
     
     Args:
-        message: Telegram сообщение
-        session: Сессия пользователя с фото и локацией
+        message: Telegram message
+        session: User session with photo and location
     """
     if not session.is_ready() or not message.from_user:
         logger.warning("Session not ready or no user")
         return
 
-    # Отправляем сообщение о начале обработки
-    processing_msg = await message.answer("⏳ Обрабатываю фото...")
+    # Send processing message
+    processing_msg = await message.answer("⏳ Processing photo...")
 
     try:
-        # Получаем сервис через dependency injection
+        # Get service via dependency injection
         from satwave.adapters.api.dependencies import get_photo_analysis_service
 
         logger.info("Getting photo analysis service...")
         service = get_photo_analysis_service()
         logger.info("Service obtained successfully")
 
-        # Запускаем анализ
+        # Start analysis
         logger.info(
             f"Starting analysis for user {message.from_user.id}, "
             f"photo size: {len(session.photo_data)} bytes, "
@@ -293,7 +385,7 @@ async def process_analysis(message: Message, session: UserSession) -> None:
             longitude=session.longitude,  # type: ignore
         )
 
-        # Формируем красивый ответ
+        # Format response
         waste_type_emoji = {
             "plastic": "🥤",
             "metal": "🔩",
@@ -304,22 +396,27 @@ async def process_analysis(message: Message, session: UserSession) -> None:
             "electronics": "💻",
             "mixed": "♻️",
             "unknown": "❓",
+            "hazardous_waste": "☢️",
+            "household_waste": "🏠",
+            "waste_separation_facilities": "♻️",
+            "mixed_waste": "♻️",
+            "construction_waste": "🏗️",
         }
 
         emoji = waste_type_emoji.get(analysis.get_dominant_waste_type().value, "♻️")
 
         result_text = (
-            f"✅ Анализ завершен!\n\n"
-            f"🗑️ Тип мусора: {emoji} {analysis.get_dominant_waste_type().value.upper()}\n"
-            f"📊 Найдено объектов: {len(analysis.detections)}\n"
-            f"📍 Локация: {analysis.location.latitude:.6f}, {analysis.location.longitude:.6f}\n"
-            f"🆔 ID анализа: `{analysis.id}`\n\n"
+            f"✅ Analysis completed!\n\n"
+            f"🗑️ Waste type: {emoji} {analysis.get_dominant_waste_type().value.upper()}\n"
+            f"📊 Objects found: {len(analysis.detections)}\n"
+            f"📍 Location: {analysis.location.latitude:.6f}, {analysis.location.longitude:.6f}\n"
+            f"🆔 Analysis ID: `{analysis.id}`\n\n"
         )
 
-        # Детали по каждой детекции
+        # Details for each detection
         if analysis.detections:
-            result_text += "📋 Детали:\n"
-            for i, detection in enumerate(analysis.detections[:5], 1):  # Показываем максимум 5
+            result_text += "📋 Details:\n"
+            for i, detection in enumerate(analysis.detections[:5], 1):  # Show max 5
                 det_emoji = waste_type_emoji.get(detection.waste_type.value, "•")
                 result_text += (
                     f"{det_emoji} {detection.waste_type.value}: "
@@ -328,27 +425,27 @@ async def process_analysis(message: Message, session: UserSession) -> None:
 
         await processing_msg.edit_text(result_text, parse_mode="Markdown")
 
-        # Очищаем сессию
+        # Clear session
         session.clear()
 
         logger.info(f"Analysis completed for user {message.from_user.id}: {analysis.id}")
 
     except InvalidLocationError as e:
         await processing_msg.edit_text(
-            f"❌ Ошибка: Невалидные координаты\n\n{e}"
+            f"❌ Error: Invalid coordinates\n\n{e}"
         )
         session.clear()
 
     except DuplicateLocationError:
         await processing_msg.edit_text(
-            "⚠️ Эта локация уже была проанализирована ранее!\n\n"
-            "Отправь фото из другого места."
+            "⚠️ This location was already analyzed!\n\n"
+            "Send a photo from a different location."
         )
         session.clear()
 
     except PhotoProcessingError as e:
         await processing_msg.edit_text(
-            f"❌ Ошибка обработки фото\n\n{e}"
+            f"❌ Photo processing error\n\n{e}"
         )
         session.clear()
 
@@ -356,29 +453,29 @@ async def process_analysis(message: Message, session: UserSession) -> None:
         logger.exception(f"Unexpected error during analysis: {e}")
         error_details = str(e)
         await processing_msg.edit_text(
-            f"❌ Произошла ошибка при обработке.\n\n"
-            f"Детали: {error_details}\n\n"
-            f"Попробуй еще раз или используй /help"
+            f"❌ An error occurred during processing.\n\n"
+            f"Details: {error_details}\n\n"
+            f"Please try again or use /help"
         )
         session.clear()
 
 
 def parse_coordinates_from_text(text: str) -> tuple[float, float] | None:
     """
-    Парсить координаты из текста.
+    Parse coordinates from text.
     
-    Поддерживает:
+    Supports:
     - Google Maps URL: https://maps.google.com/maps?q=48.033134,23.381406
-    - Прямые координаты: 48.033134, 23.381406
-    - Координаты в скобках: (48.033134, 23.381406)
+    - Direct coordinates: 48.033134, 23.381406
+    - Coordinates in brackets: (48.033134, 23.381406)
     
     Returns:
-        (latitude, longitude) или None если не найдено
+        (latitude, longitude) or None if not found
     """
     if not text:
         return None
     
-    # Парсим Google Maps URL
+    # Parse Google Maps URL
     google_maps_pattern = r'maps\.google\.com.*[?&]q=([+-]?\d+\.?\d*),([+-]?\d+\.?\d*)'
     match = re.search(google_maps_pattern, text)
     if match:
@@ -390,14 +487,14 @@ def parse_coordinates_from_text(text: str) -> tuple[float, float] | None:
         except ValueError:
             pass
     
-    # Парсим прямые координаты (lat, lon или lat,lon)
+    # Parse direct coordinates (lat, lon or lat,lon)
     coord_pattern = r'([+-]?\d+\.?\d*)[,\s]+([+-]?\d+\.?\d*)'
     match = re.search(coord_pattern, text)
     if match:
         try:
             lat = float(match.group(1))
             lon = float(match.group(2))
-            # Проверяем, что это похоже на координаты (широта -90..90, долгота -180..180)
+            # Check if this looks like coordinates (latitude -90..90, longitude -180..180)
             if -90 <= lat <= 90 and -180 <= lon <= 180:
                 logger.info(f"Parsed coordinates from text: {lat}, {lon}")
                 return (lat, lon)
@@ -409,18 +506,18 @@ def parse_coordinates_from_text(text: str) -> tuple[float, float] | None:
 
 @router.message(lambda message: message.text and not message.text.startswith("/"))
 async def handle_text_with_coordinates(message: Message) -> None:
-    """Обработчик текстовых сообщений с координатами."""
+    """Handler for text messages with coordinates."""
     if not message.from_user:
         return
     
     user_id = message.from_user.id
     text = message.text or ""
     
-    # Пытаемся распарсить координаты из текста
+    # Try to parse coordinates from text
     coords = parse_coordinates_from_text(text)
     
     if coords:
-        # Нашли координаты в тексте!
+        # Found coordinates in text!
         latitude, longitude = coords
         session = get_user_session(user_id)
         
@@ -430,57 +527,56 @@ async def handle_text_with_coordinates(message: Message) -> None:
             
             logger.info(f"User {user_id} sent coordinates in text: {latitude}, {longitude}")
             
-            # Проверяем, есть ли уже фото
+            # Check if photo already exists
             if session.has_photo():
                 logger.info(f"User {user_id} has both photo and location from text, starting analysis")
                 await process_analysis(message, session)
             else:
                 logger.info(f"User {user_id} sent location from text, waiting for photo")
                 await message.answer(
-                    f"✅ Локация получена!\n"
+                    f"✅ Location received!\n"
                     f"📍 {latitude}, {longitude}\n\n"
-                    f"📸 Теперь отправь фото мусора"
+                    f"📸 Now send a photo of waste"
                 )
         except Exception as e:
             logger.exception(f"Error handling coordinates from text: {e}")
             await message.answer(
-                "❌ Ошибка при обработке координат. Попробуй отправить геолокацию через кнопку Location."
+                "❌ Error processing coordinates. Please send geolocation via Location button."
             )
     else:
-        # Не нашли координаты - это обычный текст
+        # Didn't find coordinates - this is regular text
         logger.debug(f"User {user_id} sent text without coordinates: {text[:50]}")
         await message.answer(
-            "🤔 Я понимаю только фото и геолокацию.\n\n"
-            "Отправь геолокацию через кнопку Location (📍) или используй /help для помощи."
+            "🤔 I only understand photos and geolocation.\n\n"
+            "Send geolocation via Location button (📍) or use /help for help."
         )
 
 
 @router.message()
 async def handle_other(message: Message) -> None:
-    """Обработчик всех остальных сообщений."""
+    """Handler for all other messages."""
     if not message.from_user:
         return
     
     user_id = message.from_user.id
     
-    # Логируем, что пришло
+    # Log what came in
     logger.debug(
         f"User {user_id} sent unknown message type: "
         f"text={message.text}, photo={message.photo is not None}, "
         f"location={message.location is not None}, document={message.document is not None}"
     )
     
-    # Если это команда, но не обработана
+    # If this is a command but not handled
     if message.text and message.text.startswith("/"):
         logger.warning(f"Unhandled command from user {user_id}: {message.text}")
         await message.answer(
-            "🤔 Неизвестная команда.\n\n"
-            "Используй /help для помощи."
+            "🤔 Unknown command.\n\n"
+            "Use /help for help."
         )
     else:
-        # Другой тип сообщения (стикер, документ и т.д.)
+        # Other message type (sticker, document, etc.)
         await message.answer(
-            "🤔 Я понимаю только фото и геолокацию.\n\n"
-            "Используй /help для помощи."
+            "🤔 I only understand photos and geolocation.\n\n"
+            "Use /help for help."
         )
-
